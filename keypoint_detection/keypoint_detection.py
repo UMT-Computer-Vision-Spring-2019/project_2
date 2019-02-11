@@ -15,16 +15,14 @@ def pull_local_maxima(I):
   local_maxima.sort(key=lambda local_maxima: local_maxima[2], reverse = True) 
   local_maxima = np.array(local_maxima)
   local_maxima = local_maxima[:local_maxima.shape[0]/20]
-  radii = np.zeros((local_maxima.shape[0],1))
+  radii = np.zeros((local_maxima.shape[0],1)) + float("inf")
   local_maxima = np.hstack((local_maxima, radii))
 
   for i in range(0, local_maxima.shape[0]):
-    r = float("inf")
     for j in range(0, local_maxima.shape[0]):
       distance = np.sqrt((local_maxima[i][0] - local_maxima[j][0])**2 + (local_maxima[i][1] - local_maxima[j][1])**2)
-    if (local_maxima[j][2] > local_maxima[i][2]):
-      r = distance 
-    local_maxima[i][3] = r
+    if (local_maxima[j][2] > local_maxima[i][2] and distance < local_maxima[i][3]):
+      local_maxima[i][3] = r
 
   indices = np.argsort(-local_maxima[:,3])
   local_maxima = local_maxima[indices]
