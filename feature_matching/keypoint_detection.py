@@ -22,38 +22,33 @@ def pull_local_maxima(I):
     for j in range(0, local_maxima.shape[0]):
       distance = np.sqrt((local_maxima[i][0] - local_maxima[j][0])**2 + (local_maxima[i][1] - local_maxima[j][1])**2)
     if (local_maxima[j][2] > local_maxima[i][2] and distance < local_maxima[i][3]):
-      local_maxima[i][3] = r
+      local_maxima[i][3] = distance
 
   indices = np.argsort(-local_maxima[:,3])
   local_maxima = local_maxima[indices]
   return local_maxima[:100]
 
-I = plt.imread('statue_of_liberty.jpg')
-I = I.mean(axis=2)
-Su = np.matrix(
-[[-1, 0, 1],
-[-2, 0, 2],
-[-1,0,1]])
+def harris_corner_detection(I):
+  Su = np.matrix(
+  [[-1, 0, 1],
+  [-2, 0, 2],
+  [-1,0,1]])
+  w = np.matrix([
+  [0.023528,	0.033969,	0.038393,	0.033969,	0.023528],
+  [0.033969,	0.049045,	0.055432,	0.049045,	0.033969],
+  [0.038393,	0.055432,	0.062651,	0.055432,	0.038393],
+  [0.033969,	0.049045,	0.055432,	0.049045,	0.033969],
+  [0.023528,	0.033969,	0.038393,	0.033969,	0.023528]
+  ])
 
-w = np.matrix([
-[0.023528,	0.033969,	0.038393,	0.033969,	0.023528],
-[0.033969,	0.049045,	0.055432,	0.049045,	0.033969],
-[0.038393,	0.055432,	0.062651,	0.055432,	0.038393],
-[0.033969,	0.049045,	0.055432,	0.049045,	0.033969],
-[0.023528,	0.033969,	0.038393,	0.033969,	0.023528]
-])
+  Iu = signal.convolve2d(I, Su)
+  Iv = signal.convolve2d(I, Su.T)
 
-Iu = signal.convolve2d(I, Su)
-Iv = signal.convolve2d(I, Su.T)
+  Iuu = signal.convolve2d(np.multiply(Iu, Iu), w)
+  Ivv = signal.convolve2d(np.multiply(Iv, Iv), w)
+  Iuv = signal.convolve2d(np.multiply(Iu, Iv), w)
 
-Iuu = signal.convolve2d(np.multiply(Iu, Iu), w)
-Ivv = signal.convolve2d(np.multiply(Iv, Iv), w)
-Iuv = signal.convolve2d(np.multiply(Iu, Iv), w)
+  H = np.divide(np.multiply(Iuu, Ivv) - np.multiply(Iuv, Iuv), Iuu + Ivv + 1e-10)
 
-H = np.divide(np.multiply(Iuu, Ivv) - np.multiply(Iuv, Iuv), Iuu + Ivv + 1e-10)
-
-local_maxima = pull_local_maxima(H)
-
-plt.imshow(I)
-plt.scatter(local_maxima[:,1], local_maxima[:,0], c=local_maxima[:,2])
-plt.show() 
+  local_maxima = pull_local_maxima(H)
+  return local_maxima
