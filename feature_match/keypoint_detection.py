@@ -2,7 +2,7 @@ import numpy as np
 from scipy import signal
 
 
-def pull_local_maxima(I):
+def pull_local_maxima(I, evaluation_fraction=1.):
     local_maxima = []
     for i in range(1, I.shape[0] - 1):
         for j in range(1, I.shape[1] - 1):
@@ -14,7 +14,8 @@ def pull_local_maxima(I):
 
     local_maxima.sort(key=lambda local_maxima: local_maxima[2], reverse=True)
     local_maxima = np.array(local_maxima)
-    local_maxima = local_maxima[:local_maxima.shape[0] / 20]
+
+    local_maxima = local_maxima[:local_maxima.shape[0] * evaluation_fraction]
     radii = np.zeros((local_maxima.shape[0], 1)) + float("inf")
     local_maxima = np.hstack((local_maxima, radii))
 
