@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.transform import resize
-from feature_match.keypoint_detection import pull_local_maxima, harris_corner_detection
+from feature_match.keypoint_detection import harris_corner_detection
 
 I_1 = plt.imread('outside_1.jpg')
 I_2 = plt.imread('outside_2.jpg')

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import signal
-
+from matplotlib import pyplot as plt
 
 def pull_local_maxima(I, evaluation_fraction=1.):
     local_maxima = []
@@ -23,8 +23,8 @@ def pull_local_maxima(I, evaluation_fraction=1.):
         for j in range(0, local_maxima.shape[0]):
             distance = np.sqrt(
                 (local_maxima[i][0] - local_maxima[j][0]) ** 2 + (local_maxima[i][1] - local_maxima[j][1]) ** 2)
-        if (local_maxima[j][2] > local_maxima[i][2] and distance < local_maxima[i][3]):
-            local_maxima[i][3] = distance
+            if (local_maxima[j][2] > local_maxima[i][2] and distance < local_maxima[i][3]):
+                local_maxima[i][3] = distance
 
     indices = np.argsort(-local_maxima[:, 3])
     local_maxima = local_maxima[indices]
