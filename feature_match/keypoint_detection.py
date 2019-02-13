@@ -31,7 +31,7 @@ def pull_local_maxima(I, evaluation_fraction=1.):
     return local_maxima[:100]
 
 
-def harris_corner_detection(I):
+def harris_corner_detection(I, evaluation_fraction=1.):
     Su = np.matrix(
         [[-1, 0, 1],
          [-2, 0, 2],
@@ -53,5 +53,5 @@ def harris_corner_detection(I):
 
     H = np.divide(np.multiply(Iuu, Ivv) - np.multiply(Iuv, Iuv), Iuu + Ivv + 1e-10)
 
-    local_maxima = pull_local_maxima(H)
+    local_maxima = pull_local_maxima(H, evaluation_fraction)
     return local_maxima
