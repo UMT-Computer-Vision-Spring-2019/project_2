@@ -7,7 +7,7 @@ def pad_with(vector, pad_width, iaxis, kwargs):
   vector[-pad_width[1]:] = pad_value 
   return vector
 
-def get_min_descriptor_errors(descirptors_1, descriptors_2):
+def get_min_descriptor_errors(descirptors_1, descriptors_2, r):
   descriptor_with_least_error = np.zeros((descriptors_1.shape[0], 2))
   for i in range(0, descriptors_1.shape[0]):
     error = float('inf')
@@ -17,7 +17,7 @@ def get_min_descriptor_errors(descirptors_1, descriptors_2):
         if (test_error < error):
           descriptor_with_least_error[i][0] = j
           # is robust
-          descriptor_with_least_error[i][1] = test_error < error * .3
+          descriptor_with_least_error[i][1] = test_error < error * r
           error = test_error
   return descriptor_with_least_error
 
@@ -48,7 +48,7 @@ img = np.zeros((I_1.shape[0], I_1.shape[1] * 2))
 img[:,I_1.shape[1]:] = I_2
 img[:,:I_1.shape[1]] = I_1
 
-descriptor_with_least_error = get_min_descriptor_errors(descriptors_1, descriptors_2)
+descriptor_with_least_error = get_min_descriptor_errors(descriptors_1, descriptors_2 ,.09)
 
 for i in range(0, descriptor_with_least_error.shape[0]):
   x1 = corners_1[i][1] 

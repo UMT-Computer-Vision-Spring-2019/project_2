@@ -2,7 +2,7 @@ import numpy as np
 from scipy import signal
 from matplotlib import pyplot as plt
 
-def pull_local_maxima(I, evaluation_fraction=1.):
+def pull_local_maxima(I, evaluation_fraction=.05):
     local_maxima = []
     for i in range(1, I.shape[0] - 1):
         for j in range(1, I.shape[1] - 1):
@@ -31,7 +31,7 @@ def pull_local_maxima(I, evaluation_fraction=1.):
     return local_maxima[:100]
 
 
-def harris_corner_detection(I, evaluation_fraction=1.):
+def harris_corner_detection(I, evaluation_fraction=.05):
     Su = np.matrix(
         [[-1, 0, 1],
          [-2, 0, 2],
