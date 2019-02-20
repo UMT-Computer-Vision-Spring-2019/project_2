@@ -79,8 +79,7 @@ def harris_response(I):
 
 	for x in range(X):
 		for y in range(Y):
-			if d[x][y] == 0:
-				d[x][y] = 1
+			d[x][y] += 1e-10
 	
 	H = np.divide(c, d)
 
@@ -111,11 +110,17 @@ def local_maxima(H, j, k):
 	suppressed = adaptive_suppression(maxima)
 	suppressed.sort(key=lambda x: x[2]) # sort by distance
 	suppressed.reverse()
-	
+	amt = 100
+	#amt = len(maxima)
+	#suppressed = maxima
+
 	# take the top n from the adaptive suppression
-	x = [suppressed[i][0] for i in range(70)]
-	y = [suppressed[i][1] for i in range(70)]
-	
+	x = [suppressed[i][0] for i in range(amt)]
+	y = [suppressed[i][1] for i in range(amt)]
+	d = [suppressed[i][2] for i in range(amt)]
+
+	for i in d:
+		print(i)
 	return ([x, y])
 
 
@@ -136,12 +141,13 @@ def adaptive_suppression(maxima):
 			# for each point that has a higher harris response
 			(px, py) = (point[0], point[1])
 			dist = point_distance(x, y, px, py)
+			
 			if dist < closest_dist:
 				closest_dist = dist
 				closest_x = px
 				closest_y = py
 
-		suppressed.append([closest_x, closest_y, dist])
+		suppressed.append([x, y, closest_dist])
 
 	return (suppressed)
 
