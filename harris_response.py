@@ -1,7 +1,5 @@
 from convolution import *
-import sys
 from Filter import *
-import matplotlib.pyplot as plt
 
 
 def compute_harris_response(img, smoothing_filter):
@@ -74,13 +72,13 @@ def local_max_loc_and_intensity(h, max_filter_size):
     return np.hstack((i, j, intensities))
 
 
-def point_distance(p1, p2):
-    """Computes euclidean distance between p1 and p2"""
+def point_distance_sq(p1, p2):
+    """Computes squared euclidean distance between p1 and p2"""
 
-    x_diff = float(p1[0]) - float(p2[0])
-    y_diff = float(p1[1]) - float(p2[1])
+    diff_x = (float(p1[0]) - float(p2[0]))
+    diff_y = (float(p1[1]) - float(p2[1]))
 
-    return np.sqrt((x_diff * x_diff) + (y_diff * y_diff))
+    return (diff_x * diff_x) + (diff_y * diff_y)
 
 
 def adaptive_non_maximal_suppression(h, n, max_filter_size, c=0.9):
@@ -97,7 +95,21 @@ def adaptive_non_maximal_suppression(h, n, max_filter_size, c=0.9):
     max_loc_and_intensity = local_max_loc_and_intensity(h, max_filter_size)
 
     # Filter out local maxima with relatively weak responses
-    max_loc_and_intensity = max_loc_and_intensity[max_loc_and_intensity[:, 2] > 1e-5]
+    max_loc_and_intensity = max_loc_and_intensity[max_loc_and_intensity[:, 2] > 1e-3]
+
+    # Sort by strength of harris response
+    # Note: argsort sorts in ascending order(ie: -2, -1, 0, 1, 2, ..., inf)
+    # but we want descending order, so we flip to reverse row order.
+    max_loc_and_intensity = np.flipud(max_loc_and_intensity[max_loc_and_intensity[:, 2].argsort(kind='mergesort')])
+
+    # Keep top 50%(this could be converted to a percentage,
+    # just being lazy.(could also pick number / percentage of points to throw
+    # out and then do so by randomly sampling from indices, this has
+    # added benefit of [theoretically] keeping the same spatial
+    # distribution as the original points(thanks to Dr. Douglas Brinkerhoff))
+    num_to_keep = len(max_loc_and_intensity) // 2
+
+    max_loc_and_intensity = max_loc_and_intensity[:num_to_keep, :]
 
     local_max_pts_loc = max_loc_and_intensity[:, 0:2]
     local_max_pts_intensity = max_loc_and_intensity[:, 2]
@@ -117,35 +129,37 @@ def adaptive_non_maximal_suppression(h, n, max_filter_size, c=0.9):
             if i == j:
                 continue
 
-            # Compute distance between the current point and the point we are looking at
-            new_dist = point_distance(local_max_pts_loc[i], local_max_pts_loc[j])
+            # Only compute distance if response is stronger(thanks to Dr. Douglas Brinkerhoff)
+            elif local_max_pts_intensity[j] * c > local_max_pts_intensity[i]:
 
-            # If new point has higher intensity and is closer, record it
-            if local_max_pts_intensity[j] * c > local_max_pts_intensity[i] and new_dist < closest_pt_dist[i]:
-                closest_pt_loc[i] = local_max_pts_loc[j]
-                closest_pt_dist[i] = new_dist
+                new_dist = point_distance_sq(local_max_pts_loc[i], local_max_pts_loc[j])
+
+                # If new point has higher intensity and is closer, record it
+                if new_dist < closest_pt_dist[i]:
+                    closest_pt_loc[i] = local_max_pts_loc[i]
+                    closest_pt_dist[i] = new_dist
 
     # If dist is still infinity, it is the 'best' local max
     cond = closest_pt_dist[:, 0] == np.inf
     closest_pt_loc[cond] = local_max_pts_loc[cond]
 
+    # Create matrix of [point_location_j, point_location_i, dist to closest point]
     pt_dist_mtx = np.hstack((closest_pt_loc, closest_pt_dist))
 
     dt = np.dtype([('i', int),('j', int),('dist', float)])
-    pt_dist_mtx.view(dtype=dt).sort(order='dist', axis=0)  # Sort in place, by distance
-    pt_dist_mtx = np.flipud(pt_dist_mtx)  # Reverse
+    pt_dist_mtx.view(dtype=dt).sort(order='dist', axis=0)  # Sort in place
+    pt_dist_mtx = np.flipud(pt_dist_mtx)
 
-    reversed_points = set()
+    points_to_keep = set()
 
-    # Take the first n points we see
     for i in range(len(pt_dist_mtx)):
 
         current_point = (pt_dist_mtx[i, 1], pt_dist_mtx[i, 0])
 
-        if current_point not in reversed_points:
-            reversed_points.add(current_point)
+        if current_point not in points_to_keep:
+            points_to_keep.add(current_point)
 
-            if len(reversed_points) == n:
+            if len(points_to_keep) == n:
                 break
 
-    return zip(*reversed_points)
+    return zip(*points_to_keep)
