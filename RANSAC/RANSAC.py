@@ -14,6 +14,8 @@ def RANSAC(number_of_iterations,matches,n,r,d):
     # for 3D projection
     matches = np.insert(matches, 2, 1, axis=2)
     for i in range(number_of_iterations):
+      # swap the coords so they're xy instead of yx, what a great 
+      matches[:,:,[0, 1]] = matches[:,:,[1, 0]]
         # 1. Select a random sample of length n from the matches
       indices = np.random.choice(np.arange(0, matches.shape[1]), size=n, replace=False)
       sample = matches[:,indices,:]
@@ -30,10 +32,9 @@ def RANSAC(number_of_iterations,matches,n,r,d):
         #    7. update H_best
         #    8. update list_of_inliers
       if (inliers.shape[1] > list_of_inliers.shape[1]):
-        print(inliers.shape[1])
         H_best = H
         list_of_inliers = inliers
-    return H_best, list_of_inliers
+    return H_best, list_of_inliers[:,:,:2].astype(int)
 
 I_1 = plt.imread('photo_1.jpg')
 I_2 = plt.imread('photo_2.jpg')
