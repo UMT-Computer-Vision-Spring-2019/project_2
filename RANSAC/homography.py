@@ -3,11 +3,10 @@ import matplotlib.pyplot as plt
 from feature_matching import *
 
 def make_A_row(corner_1, corner_2):
-
   u1 = corner_1[0]
-  uprime = corner_1[0]
+  uprime = corner_2[0]
   v1 = corner_1[1]
-  vprime = corner_1[1]
+  vprime = corner_2[1]
   A_row = np.array([
   [0,0,0,-u1,-v1,-1,vprime*u1,vprime*v1,vprime],
   [u1,v1,1,0,0,0,-uprime*u1,-uprime*v1,-uprime]
@@ -25,6 +24,19 @@ def generate_homography(corners_1, corners_2, n):
   U,Sigma,Vt = np.linalg.svd(A)
   return np.reshape(Vt[-1], (3, 3))
 
+X = np.array([[0,0,1],
+              [1,0,1],
+              [1,1,1],
+              [0,1,1],
+              [0,0,1]])
+
+H = np.random.rand(3,3)
+#H/= H[2,2]
+
+Xprime = (H.dot(X.T)).T
+Xprime/=Xprime[:,2][:,np.newaxis]
+
+H_gen = generate_homography(X, Xprime, 4)
 '''
 I_1 = plt.imread('photo_1.jpg')
 I_2 = plt.imread('photo_2.jpg')
