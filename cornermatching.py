@@ -1,48 +1,6 @@
 import numpy as np
 import math as mt
-
-def sum_squared_error(D1, D2):
-    if(D1.shape == D2.shape):
-        return (((D1-np.mean(D1))/np.std(D1)) - ((D2-np.mean(D2))/np.std(D2)))**2
-    else:
-        return np.inf
-
-def get_best_matches(des_I1, des_I2):
-    best_matches = []
-    best_sse = np.inf
-    for x in range(len(des_I1)):
-        for y in range(len(des_I2)):
-            sse = sum(sum(sum_squared_error(des_I1[x][0], des_I2[y][0])))
-            if(sse < best_sse):
-                best_sse = sse
-
-                best_descriptor = des_I2[y]
-        best_matches.append(np.array([x,best_descriptor, best_sse]))
-        best_sse = np.inf
-    return(best_matches)
-
-def get_secondbest_matches(des_I1, des_I2, best_matches):
-    secondbest_matches = []
-    best_sse = np.inf
-
-    for x in range(len(des_I1)):
-        for y in range(len(des_I2)):
-            sse = sum(sum(sum_squared_error(des_I1[x][0], des_I2[y][0])))
-
-            if(sse < best_sse and sse != best_matches[x][2]):
-                best_sse = sse
-                best_descriptor = des_I2[y]
-        secondbest_matches.append(np.array([x,best_descriptor, best_sse]))
-        best_sse = np.inf
-    return secondbest_matches
-
-def filter_matches(best_matches, secondbest_matches, r=.5):
-    fMatches = []
-    for x in range(len(best_matches)):
-        if(best_matches[x][2] < r*secondbest_matches[x][2]):
-            fMatches.append(best_matches[x])
-
-    return fMatches
+import random 
 
 def convolve(g,h): # h is kernel, g is the image
     I_gray_copy = g.copy()
@@ -167,3 +125,136 @@ def descriptorExtractor(img, featureList, l = 21):
             patches.append(patch)
 
     return patches
+
+def sum_squared_error(D1, D2):
+    if(D1.shape == D2.shape):
+        return (((D1-np.mean(D1))/np.std(D1)) - ((D2-np.mean(D2))/np.std(D2)))**2
+    else:
+        return np.inf
+    
+def get_best_matches(des_I1, des_I2):
+    best_matches = []
+    best_sse = np.inf
+
+
+    for x in range(len(des_I1)):
+        for y in range(len(des_I2)):
+            sse = sum(sum(sum_squared_error(des_I1[x][0], des_I2[y][0])))
+            if(sse < best_sse):
+                best_sse = sse
+            
+                best_descriptor = des_I2[y]
+        best_matches.append(np.array([x,best_descriptor, best_sse]))
+        best_sse = np.inf
+    
+    return best_matches
+
+def get_secondbest_matches(des_I1, des_I2, best_matches):
+    secondbest_matches = []
+    best_sse = np.inf
+
+    for x in range(len(des_I1)):
+        for y in range(len(des_I2)):
+            sse = sum(sum(sum_squared_error(des_I1[x][0], des_I2[y][0])))
+        
+            if(sse < best_sse and sse != best_matches[x][2]):
+                best_sse = sse
+                best_descriptor = des_I2[y]
+        secondbest_matches.append(np.array([x,best_descriptor, best_sse]))
+        best_sse = np.inf
+    
+    return secondbest_matches
+
+def filter_matches(best_matches, secondbest_matches, r=.7):
+    filtered_matches = []
+    for x in range(len(best_matches)):
+        if(best_matches[x][2] < r*secondbest_matches[x][2]):
+            filtered_matches.append(best_matches[x])
+
+    return filtered_matches
+
+def findHomography(sample):
+    A = []
+    
+    for match in sample:
+        u = match[0]
+        v = match[1]
+        uP= match[2]
+        vP= match[3]
+        A.append([0,0,0,-u,-v,-1,vP*u,vP*v,vP])
+        A.append([u,v,1,0,0,0,-uP*u,-uP*v,-uP])
+
+    U,Sigma,Vt = np.linalg.svd(A)
+    H = Vt[-1]
+    H = np.reshape(H, (-1,3))
+    return(H)
+
+def RANSAC(number_of_iterations,temp1,n,r,d):
+
+    H_best = np.array([[1,0,0],[0,1,0],[0,0,1]])
+    list_of_inliers = []
+    for i in range(number_of_iterations):
+        temp = temp1.copy()
+        # 1. Select a random sample of length n from the matches
+        
+        samples = []
+        for i in range(n):
+            idx = random.randint(0,len(temp)-1)
+            samples.append(temp.pop(idx))
+            
+      
+        # 2. Compute a homography based on these points using the methods given above
+
+        H = findHomography(samples)
+
+        # 3. Apply this homography to the remaining points that were not randomly selected
+        predicted = []
+        observed = []
+        for sample in samples:
+            pred = sample[0:2]
+            pred.append(1)
+            predicted.append(pred)
+            
+            obs = sample[2:]
+            obs.append(1)
+            observed.append(obs)
+            
+        predicted = np.asarray(predicted)
+        
+        predicted = (H @ predicted.T).T
+        
+        # 4. Compute the residual between observed and predicted feature locations  
+        inliers = []
+        for i in range(len(predicted)):
+            pred = predicted[i]
+            obs = observed[i]
+
+            #scale
+            pred[0]= pred[0]/pred[2]
+            pred[1]=pred[1]/pred[2]
+            
+            #readability
+            u = obs[0]
+            v = obs[1]
+            uP = pred[0]
+            vP = pred[1]
+            
+            #calc residual 
+            resid = np.sqrt((u-uP)**2+(v-vP)**2)
+        # 5. Flag predictions that lie within a predefined distance r from observations as inliers
+            if(resid < r):
+                inliers.append([u,v]) 
+                
+        # 6. If number of inliers is greater than the previous best
+        #    and greater than a minimum number of inliers d, 
+        #    7. update H_best
+        #    8. update list_of_inliers
+
+            if(len(inliers) > len(list_of_inliers) and len(inliers) > d):
+                list_of_inliers = inliers.copy()
+                H_best = H
+    
+
+    return H_best, list_of_inliers
+
+
