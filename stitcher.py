@@ -57,11 +57,11 @@ class Stitcher(object):
 				if check_if_local_maxima(H, size, width, height, u, v):
 					max.append([v,u])
 		
-		# for i in range(len(max)):
-			# plt.scatter(x=max[i][0], y=max[i][1], c='r')
+		for i in range(len(max)):
+			plt.scatter(x=max[i][0], y=max[i][1], c='r')
 
-		# plt.imshow(I,cmap=plt.cm.gray)
-		# plt.show()
+		plt.imshow(I,cmap=plt.cm.gray)
+		plt.show()
 		
 		return max
 
