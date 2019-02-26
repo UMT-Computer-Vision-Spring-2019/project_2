@@ -136,7 +136,7 @@ def adaptive_non_maximal_suppression(h, n, max_filter_size, c=0.9):
 
                 # If new point has higher intensity and is closer, record it
                 if new_dist < closest_pt_dist[i]:
-                    closest_pt_loc[i] = local_max_pts_loc[i]
+                    closest_pt_loc[i] = local_max_pts_loc[j]
                     closest_pt_dist[i] = new_dist
 
     # If dist is still infinity, it is the 'best' local max
@@ -146,15 +146,13 @@ def adaptive_non_maximal_suppression(h, n, max_filter_size, c=0.9):
     # Create matrix of [point_location_j, point_location_i, dist to closest point]
     pt_dist_mtx = np.hstack((closest_pt_loc, closest_pt_dist))
 
-    dt = np.dtype([('i', int),('j', int),('dist', float)])
-    pt_dist_mtx.view(dtype=dt).sort(order='dist', axis=0)  # Sort in place
-    pt_dist_mtx = np.flipud(pt_dist_mtx)
+    pt_dist_mtx = np.flipud(pt_dist_mtx[pt_dist_mtx[:, 2].argsort(kind='mergesort')])
 
     points_to_keep = set()
 
     for i in range(len(pt_dist_mtx)):
 
-        current_point = (pt_dist_mtx[i, 1], pt_dist_mtx[i, 0])
+        current_point = (int(pt_dist_mtx[i, 1]), int(pt_dist_mtx[i, 0]))
 
         if current_point not in points_to_keep:
             points_to_keep.add(current_point)
