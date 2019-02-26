@@ -1,15 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import skimage.transform as skt
 from math import floor, exp, sqrt
 from PIL import Image
-
-I1 = plt.imread('2.jpg')
-I2 = plt.imread('1.jpg')
-
-I1 = I1.mean(axis=2) # Use this if the image is RGB
-I2 = I2.mean(axis=2)
-
-I = np.concatenate((I1, I2), axis=1)
 
 def convolve(g, h, f=0):
 	(V, U) = g.shape
@@ -143,6 +136,7 @@ def adaptive_suppression(maxima):
 	return (suppressed)
 
 def point_distance(x1, y1, x2, y2):
+	#print("{}, {}\t{}, {}".format(x1,y1,x2,y2))
 	x_diff = (x1 - x2)**2
 	y_diff = (y1 - y2)**2
 
@@ -151,6 +145,7 @@ def point_distance(x1, y1, x2, y2):
 	return (dist)
 
 def match_features(m1, m2, I1, I2, l):
+	r = 0.7
 	matched = []
 	V, U = I1.shape
 
@@ -185,12 +180,17 @@ def match_features(m1, m2, I1, I2, l):
 			if (d2_x1 < 0 or d2_x2 >= U or d2_y1 < 0 or d2_y2 >= V):
 				# if we are too close to the edge of the image 2
 				continue
-
+		
 			sum_sq_errors.append([[p2x, p2y], sum_sq_error(d1.flatten(), d2.flatten())])
 
 		sum_sq_errors.sort(key=lambda x: x[1])
 
-		matched.append([[p1x, p1y], sum_sq_errors[0][0]])
+		E1 = sum_sq_errors[0][1]
+		E2 = sum_sq_errors[1][1]
+
+		#print("{}\t{}".format(E1, E2))
+		if (E1 < r * E2):
+			matched.append([[p1x, p1y], sum_sq_errors[0][0]])
 
 	return matched
 
@@ -203,41 +203,80 @@ def sum_sq_error(p1, p2):
 	return (sum)
 
 
-H1 = harris_response(I1)
-H2 = harris_response(I2)
+def compute_homography(sample): 
+	cnt = len(list(sample)) 
+	u = sample[:, :1]
+	v = sample[:, 1:2]
+	up = sample[:, 2:3]
+	vp = sample[:, 3:4]
 
-m1 = local_maxima(H1, 3, 3)
-m2 = local_maxima(H2, 3, 3)
+	A = np.zeros((2*len(u), 9))
 
-blah, x_diff = I1.shape
+	for i in range(len(u)):
+		A[2*i, :]   = [0, 0, 0, -u[i], -v[i], -1, vp[i]*u[i], vp[i]*v[i], vp[i]]
+		A[2*i+1, :] = [u[i], v[i], 1, 0, 0, 0, -up[i]*u[i], -up[i]*v[i], -up[i]]
 
-"""
-fx = []
-fy = []
+	U,Sigma,Vt = np.linalg.svd(A)
 
-for p1, p2 in zip(m1, m2):
-	fx.append(p1[0])
-	fx.append(p2[0] + x_diff)
-	fy.append(p1[1])
-	fy.append(p2[1])
-"""
+	homog = Vt[-1].reshape(3,3)
 
-matched = match_features(m1, m2, I1, I2, 21)
-amt = len(matched)
+	return homog
 
-x1 = [matched[i][0][0] for i in range(amt)]
-y1 = [matched[i][0][1] for i in range(amt)]
+def RANSAC(number_of_iterations,matches,n,r,d):
+	H_best = np.array([[1,0,0],[0,1,0],[0,0,1]])
+	list_of_inliers = []
+	inlier_best = 0
+	
+	for i in range(number_of_iterations):
+		# 1. Select a random sample of length n from the matches
+		print(len(matches))
+		np.random.shuffle(matches)
+		samples = np.array(matches[:n])
+		test = np.array(matches[n:])
 
-x2 = [matched[i][1][0] + x_diff for i in range(amt)]
-y2 = [matched[i][1][1] for i in range(amt)]
+		# 2. Compute a homography based on these points using the methods given above
+		H_current = compute_homography(samples)
 
-amt = len(matched)
+		# 3. Apply this homography to the remaining points that were not randomly selected
+		test_I1 = test[:, :2]
+		test_I1 = np.column_stack((test_I1, np.ones(len(test_I1))))
+		test_I2 = test[:, 2:4]
+		
+		predicted = (H_current @ test_I1.T).T
+		#print(predicted)
+		predicted /= predicted[:,2][:,np.newaxis]
+		predicted = predicted[:,:2]
+		#print(test_I1)
+		#print(predicted)
+		#print(test_I2)
 
-plt.imshow(I, cmap=plt.cm.gray)
+		# 4. Compute the residual between observed and predicted feature locations
+		R = []
+		for obs, kwn in zip(predicted, test_I2):
+			#print(*obs, *kwn)
+			R.append(point_distance(*obs, *kwn))
 
-#plt.scatter(fx, fy)
 
-for i in range(amt):
-	plt.plot([x1[i], x2[i]], [y1[i], y2[i]])
+		current_inliers = []
+		for p1, p2 in zip(test_I1, predicted):
+			current_inliers.append([p1[:2], p2])
 
-plt.show(block=True)
+		#print(R)
+		in_cnt = 0
+		# 5. Flag predictions that lie within a predefined distance r from observations as inliers
+
+		for x in R:
+			if x < r:
+				in_cnt +=1
+		# 6. If number of inliers is greater than the previous best
+		#    and greater than a minimum number of inliers d, 
+		#    7. update H_best
+		#    8. update list_of_inliers
+		#print(in_cnt)
+		if (in_cnt > inlier_best and in_cnt > d):
+			H_best = H_current
+			inlier_best = in_cnt
+			list_of_inliers = current_inliers
+		pass
+	
+	return H_best, list_of_inliers
