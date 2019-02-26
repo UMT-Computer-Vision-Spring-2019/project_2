@@ -6,6 +6,8 @@ from keypoint_detector import *
 class Stitcher(object):
 	def __init__(self,image_1,image_2):
 		self.images = [image_1,image_2]
+		self.images[0] = self.images[0].mean(axis=2)
+		self.images[1] = self.images[1].mean(axis=2)
 
 	def find_keypoints(self, img):
 		"""
@@ -14,7 +16,6 @@ class Stitcher(object):
 		"""
 		# import image and convert to grayscale
 		I = img
-		I = I.mean(axis=2)
 
 		# detect_keypoints(I)
 		g = I
@@ -54,13 +55,13 @@ class Stitcher(object):
 			for v in range(width):
 				# add to list if local maxima
 				if check_if_local_maxima(H, size, width, height, u, v):
-					max.append([u,v])
+					max.append([v,u])
+		
+		# for i in range(len(max)):
+			# plt.scatter(x=max[i][0], y=max[i][1], c='r')
 
-		for i in range(len(max)):
-			plt.scatter(x=max[i][1], y=max[i][0], c='r')
-
-		plt.imshow(I,cmap=plt.cm.gray)
-		plt.show()
+		# plt.imshow(I,cmap=plt.cm.gray)
+		# plt.show()
 		
 		return max
 
@@ -70,7 +71,6 @@ class Stitcher(object):
 		neighborhood of that keypoint, so that we can match it to keypoints in other images.
 		"""
 		l = int(l/2)
-		img = img.mean(axis=2)
 		
 		descriptors = []
 		for i in range(len(points)):
@@ -88,11 +88,9 @@ class Stitcher(object):
 			if(y2 > img.shape[1]):
 				y2 = img.shape[1]
 			
-			descriptors.append(img[x1:x2, y1:y2])
+			descriptors.append([img[x1:x2:1, y1:y2:1], points[i]]) #Returns an array with [actual img data, img location (u,v)]
 		return descriptors
-			
-		
-
+	
 	def match_keypoints(self):
 		"""
 		Step 3: Compare keypoint descriptions between images, identify potential matches, and filter likely
@@ -104,17 +102,15 @@ class Stitcher(object):
 		desc1 = myStitcher.generate_descriptors(self.images[0], m1, 21)
 		desc2 = myStitcher.generate_descriptors(self.images[1], m2, 21)
 		
-		for img1 in desc1:
-			Evals = []
-			for img2 in desc2:
-				Evals.append([[img2[0], img2[1]], sum_sq_error(img1.flatten(), img2.flatten())])
-			Evals.sort(key=lambda x: x[1])
-
-			matches.append([[img1[0], img1[1]], Evals[0][0]])
-
-					
+		for p1 in desc1:
+			x1, y1 = p1[1][0], p1[1][1]
+			errors = []
+			for p2 in desc2:
+				x2, y2 = p2[1][0], p2[1][1]
+				errors.append([[x2, y2], sum_sq_error(p1[0].flatten(), p2[0].flatten())])
+			errors.sort(key=lambda x: x[1])
+			matches.append([[x1, y1], errors[0][0]])
 		return matches
-
 
 	def find_homography(self):
 		"""
@@ -132,13 +128,21 @@ im1 = plt.imread('class_photo1re.jpg')
 im2 = plt.imread('class_photo2re.jpg')
 myStitcher = Stitcher(im1, im2)
 matches = myStitcher.match_keypoints()
-print(len(matches))
 
 I = np.concatenate((im1, im2), axis=1)
 
 plt.imshow(I, cmap=plt.cm.gray)
 
-# for i in range(amt):
-	# plt.plot([x1[i], x2[i]], [y1[i], y2[i]])
+offset = im1.shape[1]
+lengthOfMatches = len(matches)
 
-plt.show(block=True)
+x1 = [matches[i][0][0] for i in range(lengthOfMatches)]
+y1 = [matches[i][0][1] for i in range(lengthOfMatches)]
+
+x2 = [matches[i][1][0] + offset for i in range(lengthOfMatches)]
+y2 = [matches[i][1][1] for i in range(lengthOfMatches)]
+
+for i in range(lengthOfMatches):
+	plt.plot([x1[i], x2[i]], [y1[i], y2[i]])
+
+plt.show()
