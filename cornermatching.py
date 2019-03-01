@@ -175,6 +175,7 @@ def findHomography(sample):
         v = match[1]
         uP= match[2]
         vP= match[3]
+
         A.append([0,0,0,-u,-v,-1,vP*u,vP*v,vP])
         A.append([u,v,1,0,0,0,-uP*u,-uP*v,-uP])
 
