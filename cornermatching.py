@@ -1,6 +1,6 @@
 import numpy as np
 import math as mt
-import random 
+import random
 
 def convolve(g,h): # h is kernel, g is the image
     I_gray_copy = g.copy()
@@ -22,27 +22,26 @@ def gauss_kernal(size, var):
     for i in range(size):
         for j in range(size):
             kernel[i][j] = mt.exp( -((i - (size-1)/2)**2 + (j - (size-1)/2)**2 )/(2*var*var))
-
     kernel = kernel / kernel.sum()
     return kernel
 
-def harris_response(img, gmean = 5,var =2):
-	sobel = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
-	gauss = gauss_kernal(gmean,var)
+def harris_response(img):
+    sobel = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
+    gauss = gauss_kernal(3,2)
     #calculate the harris response using sobel operator and gaussian kernel
 
-	Iu = convolve(img,sobel)
-	Iv = convolve(img,sobel.transpose())
+    Iu = convolve(img,sobel)
+    Iv = convolve(img,sobel.transpose())
 
-	Iuu = convolve(Iu*Iu,gauss)
-	Ivv = convolve(Iv*Iv,gauss)
-	Iuv = convolve(Iu*Iv,gauss)
+    Iuu = convolve(Iu*Iu,gauss)
+    Ivv = convolve(Iv*Iv,gauss)
+    Iuv = convolve(Iu*Iv,gauss)
 
-	H = (Iuu*Ivv - Iuv*Iuv)/(Iuu + Ivv + .0000000001)
+    H = (Iuu*Ivv - Iuv*Iuv)/(Iuu + Ivv + .0000000001)
 
-	return H
+    return H
 
-def getmaxima (H,threshold,localSearchWidth = 21):
+def getmaxima (H,threshold,localSearchWidth = 5):
     maxima = []
 
     p = localSearchWidth
@@ -82,11 +81,13 @@ def nonmaxsup(H,n=100,c=.9):
 
         mindistance.append([row[x],row[y],min])
     mindistance.sort(key=lambda x:x[2])
+
     return mindistance[-n:]
 
 def descriptorExtractor(img, featureList, l = 21):
+
     def patchFinder(i,j,img,featureList,l):
-        descriptor = [i,j,np.zeros((l,l))]
+        descriptor = [0,0,0]
         patch = np.zeros((l,l))
         patchX = 0
         floor = int(l/2)
@@ -114,7 +115,6 @@ def descriptorExtractor(img, featureList, l = 21):
         descriptor[2] = j
         return descriptor
 
-
     width,height = img.shape
 
     patches = []
@@ -131,51 +131,45 @@ def sum_squared_error(D1, D2):
         return (((D1-np.mean(D1))/np.std(D1)) - ((D2-np.mean(D2))/np.std(D2)))**2
     else:
         return np.inf
-    
+
 def get_best_matches(des_I1, des_I2):
     best_matches = []
     best_sse = np.inf
-
-
-    for x in range(len(des_I1)):
-        for y in range(len(des_I2)):
-            sse = sum(sum(sum_squared_error(des_I1[x][0], des_I2[y][0])))
+    for i in range(len(des_I1)):
+        for j in range(len(des_I2)):
+            sse = sum(sum(sum_squared_error(des_I1[i][0], des_I2[j][0])))
             if(sse < best_sse):
                 best_sse = sse
-            
-                best_descriptor = des_I2[y]
-        best_matches.append(np.array([x,best_descriptor, best_sse]))
+                bestMatch = np.array([des_I1[i][1],des_I1[i][2],des_I2[j][1],des_I2[j][2]])
+        best_matches.append(np.array([bestMatch,best_sse]))
         best_sse = np.inf
-    
     return best_matches
 
 def get_secondbest_matches(des_I1, des_I2, best_matches):
     secondbest_matches = []
     best_sse = np.inf
 
-    for x in range(len(des_I1)):
-        for y in range(len(des_I2)):
-            sse = sum(sum(sum_squared_error(des_I1[x][0], des_I2[y][0])))
-        
-            if(sse < best_sse and sse != best_matches[x][2]):
+    for i in range(len(des_I1)):
+        for j in range(len(des_I2)):
+            sse = sum(sum(sum_squared_error(des_I1[i][0], des_I2[j][0])))
+            if(sse < best_sse and sse != best_matches[i][1]):
                 best_sse = sse
-                best_descriptor = des_I2[y]
-        secondbest_matches.append(np.array([x,best_descriptor, best_sse]))
+                secondBestMatch = np.array([des_I1[i][1],des_I1[i][2],des_I2[j][1],des_I2[j][2]])
+        secondbest_matches.append(np.array([secondBestMatch, best_sse]))
         best_sse = np.inf
-    
+
     return secondbest_matches
 
-def filter_matches(best_matches, secondbest_matches, r=.7):
+def filter_matches(best_matches, secondbest_matches, r=.5):
     filtered_matches = []
-    for x in range(len(best_matches)):
-        if(best_matches[x][2] < r*secondbest_matches[x][2]):
-            filtered_matches.append(best_matches[x])
-
+    for i in range(len(best_matches)):
+        if(best_matches[i][1] < r*secondbest_matches[i][1]):
+            filtered_matches.append(best_matches[i][0])
     return filtered_matches
 
 def findHomography(sample):
     A = []
-    
+
     for match in sample:
         u = match[0]
         v = match[1]
@@ -186,23 +180,23 @@ def findHomography(sample):
 
     U,Sigma,Vt = np.linalg.svd(A)
     H = Vt[-1]
+
     H = np.reshape(H, (-1,3))
     return(H)
 
-def RANSAC(number_of_iterations,temp1,n,r,d):
+def RANSAC(number_of_iterations,matches,n,r,d):
 
     H_best = np.array([[1,0,0],[0,1,0],[0,0,1]])
     list_of_inliers = []
+
     for i in range(number_of_iterations):
-        temp = temp1.copy()
         # 1. Select a random sample of length n from the matches
-        
         samples = []
         for i in range(n):
-            idx = random.randint(0,len(temp)-1)
-            samples.append(temp.pop(idx))
-            
-      
+            idx = random.randint(0,len(matches)-1)
+            samples.append(matches.pop(idx))
+
+
         # 2. Compute a homography based on these points using the methods given above
 
         H = findHomography(samples)
@@ -212,18 +206,18 @@ def RANSAC(number_of_iterations,temp1,n,r,d):
         observed = []
         for sample in samples:
             pred = sample[0:2]
-            pred.append(1)
+            np.append(pred,1)
             predicted.append(pred)
-            
+
             obs = sample[2:]
-            obs.append(1)
+            np.append(obs,1)
             observed.append(obs)
-            
+
         predicted = np.asarray(predicted)
-        
+
         predicted = (H @ predicted.T).T
-        
-        # 4. Compute the residual between observed and predicted feature locations  
+
+        # 4. Compute the residual between observed and predicted feature locations
         inliers = []
         for i in range(len(predicted)):
             pred = predicted[i]
@@ -232,29 +226,27 @@ def RANSAC(number_of_iterations,temp1,n,r,d):
             #scale
             pred[0]= pred[0]/pred[2]
             pred[1]=pred[1]/pred[2]
-            
+
             #readability
             u = obs[0]
             v = obs[1]
             uP = pred[0]
             vP = pred[1]
-            
-            #calc residual 
+
+            #calc residual
             resid = np.sqrt((u-uP)**2+(v-vP)**2)
         # 5. Flag predictions that lie within a predefined distance r from observations as inliers
             if(resid < r):
-                inliers.append([u,v]) 
-                
+                inliers.append([u,v])
+
         # 6. If number of inliers is greater than the previous best
-        #    and greater than a minimum number of inliers d, 
+        #    and greater than a minimum number of inliers d,
         #    7. update H_best
         #    8. update list_of_inliers
 
             if(len(inliers) > len(list_of_inliers) and len(inliers) > d):
                 list_of_inliers = inliers.copy()
                 H_best = H
-    
+
 
     return H_best, list_of_inliers
-
-
