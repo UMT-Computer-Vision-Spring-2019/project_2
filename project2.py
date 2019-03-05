@@ -181,7 +181,7 @@ def match_features(m1, m2, I1, I2, l):
 				# if we are too close to the edge of the image 2
 				continue
 		
-			sum_sq_errors.append([[p2x, p2y], sum_sq_error(d1.flatten(), d2.flatten())])
+			sum_sq_errors.append([[p2x, p2y], np.sum((d1-d2)**2)])
 
 		sum_sq_errors.sort(key=lambda x: x[1])
 
@@ -229,7 +229,7 @@ def RANSAC(number_of_iterations,matches,n,r,d):
 	
 	for i in range(number_of_iterations):
 		# 1. Select a random sample of length n from the matches
-		print(len(matches))
+		#print(len(matches))
 		np.random.shuffle(matches)
 		samples = np.array(matches[:n])
 		test = np.array(matches[n:])
@@ -278,5 +278,6 @@ def RANSAC(number_of_iterations,matches,n,r,d):
 			inlier_best = in_cnt
 			list_of_inliers = current_inliers
 		pass
-	
+		#print(in_cnt)
+
 	return H_best, list_of_inliers
